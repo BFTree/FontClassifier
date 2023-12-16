@@ -19,7 +19,7 @@ class WordClassifier(nn.Module):
         self.bn2 = nn.BatchNorm2d(64)
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.fc1 = nn.Linear(64 * 32 * 32, 512)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.0)
         self.fc3 = nn.Linear(512, 413)
 
     def forward(self, x):
@@ -34,23 +34,24 @@ class WordClassifier(nn.Module):
 
 data_dir = 'WorkData'
 img_size = 128
+rotation_degree = 90
 
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomResizedCrop(img_size),
-        transforms.RandomHorizontalFlip(),
+        transforms.Resize([img_size,img_size]),
+        transforms.RandomRotation(degrees=(-rotation_degree, rotation_degree)),
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize([0.485], [0.229])
     ]),
     'val': transforms.Compose([
-        transforms.Resize(img_size),
+        transforms.Resize([img_size,img_size]),
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize([0.485], [0.229])
     ]),
     'test': transforms.Compose([
-        transforms.Resize(img_size),
+        transforms.Resize([img_size,img_size]),
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize([0.485], [0.229])
@@ -102,6 +103,14 @@ with open('result.txt', 'w') as result_file:
                 _, predicted = torch.max(outputs, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                # 计算模型输出的概率分布
+                probabilities = F.softmax(predicted, dim=1)
+
+                # 获取前五个预测的类别
+                top5_predictions = torch.topk(probabilities, k=5, dim=1)[1]
+
+                # 检查真实标签是否在前五个预测中
+                correct_top5 = labels.view(-1, 1).expand_as(top5_predictions).eq(top5_predictions).sum().item()
 
             epoch_loss = running_loss / len(dataloaders[phase])
             epoch_accuracy = correct / total
