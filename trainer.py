@@ -74,6 +74,10 @@ num_epochs = 50
 best_val_accuracy = 0.0
 best_model_path = 'models/best_model.pth'  
 
+stage_count = 0
+stage_num = 0
+correct_top5 = 0
+
 with open('result.txt', 'w') as result_file:
     for epoch in range(num_epochs):
         for phase in ['train', 'val']:
@@ -110,10 +114,16 @@ with open('result.txt', 'w') as result_file:
                 top5_predictions = torch.topk(probabilities, k=5, dim=1)[1]
 
                 # 检查真实标签是否在前五个预测中
-                correct_top5 = labels.view(-1, 1).expand_as(top5_predictions).eq(top5_predictions).sum().item()
+                correct_top5 += labels.view(-1, 1).expand_as(top5_predictions).eq(top5_predictions).sum().item()
+                stage_count += 1
+                if stage_count > 2500:
+                    temp_accuracy = correct_top5 / total
+                    print(f'stage:{stage_num} accuracy: {temp_accuracy:.4f}')
+                    stage_count = 0
+                    stage_num += 1
 
             epoch_loss = running_loss / len(dataloaders[phase])
-            epoch_accuracy = correct / total
+            epoch_accuracy = correct_top5 / total
 
             print(f'{phase.capitalize()} Loss: {epoch_loss:.4f} Accuracy: {epoch_accuracy:.4f}')
 
