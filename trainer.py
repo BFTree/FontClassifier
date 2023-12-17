@@ -18,9 +18,9 @@ class WordClassifier(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(64)
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = nn.Linear(64 * 32 * 32, 512)
+        self.fc1 = nn.Linear(64 * 32 * 32, 1024)
         self.dropout = nn.Dropout(0.0)
-        self.fc3 = nn.Linear(512, 413)
+        self.fc3 = nn.Linear(1024, 430)
 
     def forward(self, x):
         x = self.pool1(F.relu(self.bn1(self.conv1(x))))
@@ -32,7 +32,7 @@ class WordClassifier(nn.Module):
         x = F.log_softmax(x, dim=1)
         return x
 
-data_dir = 'WorkData'
+data_dir = '../newWorkData'
 img_size = 128
 rotation_degree = 90
 
@@ -72,10 +72,11 @@ dataloaders = {x: DataLoader(image_datasets[x], batch_size=batch_size, shuffle=T
 
 num_epochs = 50
 best_val_accuracy = 0.0
-best_model_path = 'models/best_model.pth'  
+best_model_path = '../models/best_model.pth'  
 
 stage_count = 0
 stage_num = 0
+last_corrext_top5 = 0
 correct_top5 = 0
 
 with open('result.txt', 'w') as result_file:
@@ -87,6 +88,7 @@ with open('result.txt', 'w') as result_file:
                 net.eval()
 
             running_loss = 0.0
+            last_corrext_top5 = correct_top5
             correct = 0
             total = 0
 
@@ -108,7 +110,9 @@ with open('result.txt', 'w') as result_file:
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
                 # 计算模型输出的概率分布
-                probabilities = F.softmax(predicted, dim=1)
+                # print(outputs)
+                probabilities = outputs
+                # print(probabilities)
 
                 # 获取前五个预测的类别
                 top5_predictions = torch.topk(probabilities, k=5, dim=1)[1]
@@ -116,20 +120,22 @@ with open('result.txt', 'w') as result_file:
                 # 检查真实标签是否在前五个预测中
                 correct_top5 += labels.view(-1, 1).expand_as(top5_predictions).eq(top5_predictions).sum().item()
                 stage_count += 1
-                if stage_count > 2500:
-                    temp_accuracy = correct_top5 / total
-                    print(f'stage:{stage_num} accuracy: {temp_accuracy:.4f}')
+                if stage_count > 20:
+                    top5_temp_accuracy = (correct_top5 - last_corrext_top5) / total
+                    top1_temp_accuracy = correct / total
+                    print(f'\nstage:{stage_num} top5-accuracy: {top5_temp_accuracy:.4f} top1-accuracy:{top1_temp_accuracy:.4f}',flush=True)
                     stage_count = 0
                     stage_num += 1
 
             epoch_loss = running_loss / len(dataloaders[phase])
-            epoch_accuracy = correct_top5 / total
+            top5_epoch_accuracy = (correct_top5 - last_corrext_top5) / total
+            epoch_accuracy = correct / total
 
-            print(f'{phase.capitalize()} Loss: {epoch_loss:.4f} Accuracy: {epoch_accuracy:.4f}')
+            print(f'{phase.capitalize()} Loss: {epoch_loss:.4f} top5 Accuracy={top5_epoch_accuracy:.4f} top Accuracy: {epoch_accuracy:.4f}',flush=True)
 
             torch.save(net.state_dict(), f'models/model_epoch_{epoch + 1}.pth')
 
-            result_file.write(f'{phase.capitalize()} Epoch {epoch + 1}: Loss={epoch_loss:.4f}, Accuracy={epoch_accuracy:.4f}\n')
+            result_file.write(f'{phase.capitalize()} Epoch {epoch + 1}: Loss={epoch_loss:.4f}, top5 Accuracy={top5_epoch_accuracy:.4f} top Accuracy={epoch_accuracy:.4f}\n')
 
             if phase == 'val' and epoch_accuracy > best_val_accuracy:
                 best_val_accuracy = epoch_accuracy

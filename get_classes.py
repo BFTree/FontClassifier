@@ -8,7 +8,7 @@ from torchvision import transforms, datasets
 from torchvision.datasets import ImageFolder
 import os
 
-data_dir = 'WorkData'
+data_dir = '../newWorkData'
 img_size = 128
 
 data_transforms = {
@@ -38,7 +38,7 @@ image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transf
 batch_size = 64
 dataloaders = {x: DataLoader(image_datasets[x], batch_size=batch_size, shuffle=True) for x in ['train', 'val', 'test']}
 class_names = image_datasets['train'].classes
-
+print(len(class_names))
 with open('classes.txt',"w") as f:
     f.write(str(class_names))
 
